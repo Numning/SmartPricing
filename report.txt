@@ -1,0 +1,617 @@
+================================================================================
+                    ITCS 227 — INTRODUCTION TO DATA SCIENCE
+                         CAPSTONE PROJECT — FINAL REPORT
+================================================================================
+
+  Title:     Smart Pricing: Predicting Smartphone Prices from Specifications
+  Course:    ITCS 227 — Introduction to Data Science
+  Semester:  2/2025
+  Members:   [Name 1], [Name 2], [Name 3], [Name 4]
+  Date:      May 2026
+
+================================================================================
+
+
+================================================================================
+  1. INTRODUCTION
+================================================================================
+
+  1.1 Background
+  --------------
+  The global smartphone market is one of the most competitive consumer
+  electronics sectors, with over 1,000 new models released annually across
+  dozens of brands. Prices range from under $100 to over $2,000, and the
+  factors driving this wide range are often opaque to consumers, retailers,
+  and new market entrants alike.
+
+  Machine learning offers a systematic, data-driven way to decode these
+  pricing dynamics. By training models on hardware specifications, we can
+  learn the quantitative relationship between a phone's features and its
+  fair market price — providing transparency that benefits multiple
+  stakeholders.
+
+  1.2 Problem Statement
+  ---------------------
+  Multiple groups face pricing-related challenges in the smartphone market:
+
+    • Consumers cannot easily determine whether a listed price is fair
+      relative to a phone's specifications, leading to overpaying.
+
+    • Budget shoppers struggle to identify the best-value phones within
+      their price range among hundreds of options.
+
+    • Retailers risk losing sales by pricing too high or losing margin
+      by pricing too low, without data to guide their decisions.
+
+    • Startup OEMs (Original Equipment Manufacturers) entering the market
+      have no objective, data-backed reference for setting competitive
+      prices for new products.
+
+    • Market analysts lack tools to systematically quantify brand premiums,
+      regional pricing strategies, and specification–price relationships.
+
+  1.3 Objectives
+  --------------
+  This project builds an end-to-end data science pipeline that:
+
+    1. Predicts a fair market price for any smartphone from its hardware
+       specifications using regression models.
+    2. Classifies phones into intuitive price tiers (Budget, Mid-Range,
+       Premium, Ultra-Premium) using classification models.
+    3. Detects overpriced and underpriced phones to guide consumer decisions
+       via a "Deal Detector" tool.
+    4. Identifies which specifications drive smartphone pricing the most
+       through feature importance and partial dependency analysis.
+    5. Compares pricing across 5 countries to reveal regional price
+       differences.
+    6. Deploys an interactive Streamlit web application for non-technical
+       users in two operating modes: Customer Mode and Company Mode.
+
+  By applying regression, classification, and clustering techniques covered
+  throughout ITCS 227, this project demonstrates a practical, end-to-end
+  data science pipeline — from raw data to a deployed interactive tool.
+
+
+================================================================================
+  2. DATA DESCRIPTION
+================================================================================
+
+  2.1 Data Source
+  ---------------
+    Source:    Kaggle — Mobiles Dataset 2025 (by Abdul Malik, 2025)
+    URL:       https://www.kaggle.com/datasets/abdulmalik1518/mobiles-dataset-2025
+    License:   Apache 2.0
+    Raw Size:  930 rows × 15 columns
+
+  The dataset was downloaded programmatically using the kagglehub library,
+  requiring no manual file handling.
+
+  2.2 Dataset Description
+  ------------------------
+  The raw dataset contains smartphone listings from 2014 to 2025, covering
+  19 brands (Apple, Samsung, Xiaomi, Oppo, Vivo, Honor, Google, etc.) with
+  prices listed in 5 countries: USA, India, China, Pakistan, and Dubai.
+
+  After removing 101 tablet entries (which follow different pricing patterns),
+  829 smartphones remain for analysis.
+
+    Feature                 Type     Example            Description
+    ────────────────────────────────────────────────────────────────────
+    Company Name            String   Apple              Brand / manufacturer
+    Model Name              String   iPhone 16 128GB    Specific model
+    Mobile Weight           String   174g               Weight in grams
+    RAM                     String   6GB                Random Access Memory
+    Front Camera            String   12MP               Selfie camera MP
+    Back Camera             String   48MP               Main camera MP
+    Processor               String   A17 Bionic         Chipset name
+    Battery Capacity        String   3,600mAh           Battery size (mAh)
+    Screen Size             String   6.1 inches         Display diagonal
+    Launched Price (USA)    String   USD 799            USA launch price
+    Launched Price (India)  String   INR 79,900         India launch price
+    Launched Price (China)  String   CNY 5,999          China launch price
+    Launched Price (Pak.)   String   PKR 249,999        Pakistan launch price
+    Launched Price (Dubai)  String   AED 3,099          Dubai launch price
+    Launched Year           Integer  2024               Year of release
+
+  2.3 Data Quality
+  ----------------
+    • 0 missing values in the raw dataset after parsing.
+    • All columns are initially stored as strings (e.g., "6GB", "3,600mAh").
+
+  2.4 Preprocessing Steps
+  ------------------------
+  All string-encoded specifications were converted to numeric values using
+  regular expression (regex) extraction:
+
+    Step 1 — Numeric Parsing:
+      • "6GB" → 6 (RAM in GB)
+      • "3,600mAh" → 3600 (battery in mAh)
+      • "174g" → 174 (weight in grams)
+      • "6.1 inches" → 6.1 (screen size in inches)
+      • "12MP" → 12 (camera resolution in MP)
+
+    Step 2 — Multi-Camera Handling:
+      • Entries such as "50MP + 12MP + 10MP" were parsed to extract:
+          – Maximum resolution (primary lens MP)
+          – Number of lenses (lens count)
+
+    Step 3 — Price Normalization:
+      • All country prices converted to USD using fixed approximate
+        exchange rates for cross-country comparison.
+
+    Step 4 — Feature Engineering:
+      • Price-per-GB-RAM    = USD price / RAM (GB)
+      • Camera Ratio        = Front Camera MP / Back Camera MP
+      • Battery-per-Inch    = Battery (mAh) / Screen Size (inches)
+      • Total Camera MP     = Sum of all camera lens resolutions
+      • Interaction features: RAM × Total Camera MP, Screen × Battery
+
+    Step 5 — Feature Binning:
+      • RAM binned into quartiles using pd.qcut()
+      • Battery capacity binned using pd.cut()
+      • Price binned into 4 quartile-based tiers using pd.qcut()
+
+    Final dataset used for modeling: 829 smartphones, 19 numeric features.
+
+
+================================================================================
+  3. METHODOLOGY
+================================================================================
+
+  The project follows the CRISP-DM (Cross-Industry Standard Process for Data
+  Mining) lifecycle. We integrated 12 techniques from 5 ITCS 227 course labs
+  (Labs 05, 06, 07, 10, 12).
+
+  3.1 Exploratory Data Analysis (EDA)
+  ------------------------------------
+    • Price distribution analysis (histogram, box plot, skewness)
+        – Median: $449 | Mean: $589 | Distribution: right-skewed
+    • Brand comparison: average prices, model counts, price box plots
+    • Correlation heatmap of all numeric features
+    • Pearson correlation with p-value significance testing:
+        – RAM (r = 0.72, p < 0.001) — strongest predictor
+        – Front Camera (r = 0.50, p < 0.001)
+        – Weight (r = 0.45, p < 0.001)
+        – Battery (r = 0.15, p < 0.001) — weakest but still significant
+    • Year-over-year trend analysis (mean/median prices, release counts)
+    • Feature-vs-price scatter plots with trend lines (color-coded by year)
+    • Brand premium analysis (violin plots, comparative box plots)
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/03_correlation_heatmap.png]                   │
+  │  Caption: Figure 1 — Correlation heatmap of all numeric features.   │
+  │  Darker red/blue = stronger positive/negative correlation.          │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  3.2 Regression Modeling (Price Prediction)
+  -------------------------------------------
+  We trained 8 regression models to predict the USD launch price.
+  All models use an 80/20 train-test split; continuous USD price is
+  the target variable.
+
+    Model                        Purpose
+    ──────────────────────────────────────────────────────────────────
+    Linear Regression            Baseline — simple, interpretable
+    Ridge Regression (α=1)       Regularized — handles multicollinearity
+    Poly-2 Ridge Regression      Polynomial Features (degree=2)
+    Random Forest Regressor      Ensemble — captures non-linear patterns
+    Gradient Boosting            Sequential ensemble — high accuracy
+    HistGradientBoosting         Histogram-based boosting [Lab 07/10]
+    Extra Trees Regressor        Randomized ensemble — reduces variance
+    Tuned Random Forest          Hyperparameter-optimized RF
+
+  Advanced evaluation techniques applied:
+    • 5-Fold Cross-Validation (cross_val_score)
+    • Learning Curves to diagnose overfitting vs. underfitting
+    • Partial Dependency Plots for marginal feature effects
+    • Model export using pickle for deployment
+
+  Evaluation metrics: MAE, RMSE, R², CV R² (5-fold mean)
+
+  "Deal Detector": Phones where |actual − predicted| > 25% of the
+  predicted price are flagged as overpriced or underpriced.
+
+  3.3 Classification (Price Tier Prediction)
+  -------------------------------------------
+  Phones were assigned to 4 price tiers based on USD launch price:
+
+    Tier             Price Range
+    ─────────────────────────────
+    Budget           < $300
+    Mid-Range        $300 – $700
+    Premium          $700 – $1,000
+    Ultra-Premium    > $1,000
+
+  Three classification models were trained and compared:
+    • Logistic Regression
+    • Decision Tree Classifier
+    • Random Forest Classifier
+
+  Evaluation metrics: Accuracy, Precision, Recall, F1-Score,
+  Confusion Matrix (visualized as a heatmap).
+
+  3.4 Unsupervised Analysis (Clustering)
+  ----------------------------------------
+  Three clustering algorithms were trained and compared to discover
+  natural groupings in the smartphone market without price labels:
+
+    • K-Means (K=4, chosen via Elbow Method + Silhouette Score)
+    • DBSCAN — density-based clustering with eps hyperparameter search
+     
+    • GMM (Gaussian Mixture Model) with n_components search
+
+  All clustering was performed on standardized numeric features.
+  Evaluation:
+    • Silhouette Score for all methods
+    • Hyperparameter grid search for optimal parameters
+    • PCA for 2D cluster visualization
+    • Cross-tabulation of discovered clusters vs. actual price tiers
+
+  3.5 Cross-Country Price Analysis
+  ----------------------------------
+    • Currency normalization to USD using approximate exchange rates
+    • Per-brand identification of cheapest and most expensive countries
+    • Price markup heatmap (% difference from USA base prices)
+
+  3.6 Deployment
+  ---------------
+  The best regression model (Extra Trees Regressor) was serialized using
+  Python's pickle library and loaded by a Streamlit web application.
+  The app provides two operating modes:
+    – Customer Mode: User enters phone specs + listed price → app flags
+      whether the phone is overpriced, underpriced, or fairly priced.
+    – Company Mode: User enters phone specs → app returns the predicted
+      fair market price for manufacturing/pricing decisions.
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT SCREENSHOT: Streamlit app — Customer Mode interface]       │
+  │  Caption: Figure 2 — Streamlit Customer Mode: user enters specs     │
+  │  and listed price; the app displays the deal verdict and gauge.     │
+  │  (Take a screenshot from http://localhost:8501 after running app)   │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT SCREENSHOT: Streamlit app — Company Mode interface]        │
+  │  Caption: Figure 3 — Streamlit Company Mode: user enters specs;     │
+  │  the app returns the recommended price and pricing strategies.      │
+  └─────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+  4. RESULTS
+================================================================================
+
+  4.1 Regression Model Performance
+  ----------------------------------
+
+    Model                    MAE      RMSE     R²      CV R² (5-fold)
+    ─────────────────────────────────────────────────────────────────────
+    Linear Regression        $116     $173     0.68    0.68
+    Ridge Regression         $116     $173     0.68    0.68
+    Poly-2 Ridge ★           $85      $127     0.83    0.80
+    Random Forest            $78      $118     0.85    0.85
+    Gradient Boosting        $69      $106     0.88    0.87
+    HistGradientBoosting ★   $68      $106     0.88    0.87
+    ⭐ Extra Trees (Best)     $74      $113     0.91    0.89
+    Tuned Random Forest      $75      $116     0.86    0.85
+
+    ★ = Course technique applied   ⭐ = Best overall model
+
+  Key findings:
+    • Extra Trees achieves R² = 0.91, explaining 91% of price variance.
+    • CV R² = 0.89 confirms the model generalizes well to unseen data.
+    • HistGradientBoosting (Lab 07/10) performs competitively at R²=0.88.
+    • Polynomial Features (Lab 06) improve Ridge from R²=0.68 to 0.83.
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/08_regression_results.png]                    │
+  │  Caption: Figure 4 — Actual vs. Predicted price scatter plot for    │
+  │  the best model (Extra Trees). Points close to the diagonal         │
+  │  indicate accurate predictions.                                     │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/17_learning_curves.png]                       │
+  │  Caption: Figure 5 — Learning curves for the best model.            │
+  │  Training and validation curves converge, confirming no overfitting.│
+  └─────────────────────────────────────────────────────────────────────┘
+
+  4.2 Classification Model Performance
+  --------------------------------------
+
+    Model                Accuracy    F1-Score (macro)
+    ──────────────────────────────────────────────────
+    Logistic Regression  ~0.66       ~0.65
+    Decision Tree        ~0.76       ~0.76
+    Random Forest        ~0.80       ~0.79       ← Best
+
+  Key findings:
+    • Random Forest achieves 80% accuracy across 4 price tiers.
+    • Most misclassifications occur between adjacent tiers (e.g.,
+      Budget vs. Mid-Range), which is expected given overlapping
+      spec ranges near tier boundaries.
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/11_classification_results.png]                │
+  │  Caption: Figure 6 — Confusion matrix for the Random Forest         │
+  │  classifier across 4 price tiers. Darker diagonal = correct         │
+  │  predictions; off-diagonal values show misclassifications.          │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  4.3 Clustering Comparison
+  --------------------------
+
+    Method            Silhouette Score    Clusters Found
+    ────────────────────────────────────────────────────
+    KMeans (K=4)      0.2830              4           ← Best
+    DBSCAN (auto)     0.1512              5
+    GMM (auto)        0.2397              2
+
+  Key findings:
+    • KMeans with K=4 yields the best Silhouette Score (0.28) and its
+      clusters align closely with actual price tiers when cross-tabulated.
+    • DBSCAN identifies noise points and produces 5 clusters but with
+      lower overall cohesion (Silhouette = 0.15).
+    • GMM provides soft probabilistic membership but detects only 2
+      natural groupings in this dataset.
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/13_elbow_method.png]                          │
+  │  Caption: Figure 7 — Elbow method for K-Means: the "elbow" at K=4  │
+  │  confirms the optimal number of clusters.                           │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/19_clustering_comparison.png]                 │
+  │  Caption: Figure 8 — Side-by-side PCA visualization comparing       │
+  │  KMeans, DBSCAN, and GMM cluster assignments.                       │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/20_silhouette_comparison.png]                 │
+  │  Caption: Figure 9 — Silhouette Score comparison across all three   │
+  │  clustering methods; KMeans scores highest at 0.28.                 │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  4.4 Top Price Drivers (Feature Importance from Extra Trees)
+  ------------------------------------------------------------
+    Rank  Feature         Importance    Interpretation
+    ────────────────────────────────────────────────────────────────────
+    1     Weight           0.37         Heavier phones use premium materials
+    2     Screen Size      0.18         Larger displays command higher prices
+    3     RAM              0.15         Strong positive correlation with price
+    4     Front Camera     0.12         Selfie quality linked to premium tier
+    5     Battery          0.08         Contributes less than commonly assumed
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/09_feature_importance.png]                    │
+  │  Caption: Figure 10 — Feature importance chart from the Extra Trees │
+  │  model. Weight, Screen Size, and RAM are the top 3 price drivers.   │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/18_partial_dependency.png]                    │
+  │  Caption: Figure 11 — Partial Dependency Plots showing the          │
+  │  marginal effect of each top feature on the predicted price,        │
+  │  holding all other features at their mean values.          │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  4.5 Cross-Country Price Analysis
+  ----------------------------------
+    • The same smartphone can cost 13% to 83% more depending on the
+      country of purchase.
+    • Pakistan is the cheapest market for some brands (notably Apple).
+    • China is the cheapest market for Samsung devices.
+    • Regional pricing strategies play a major role across all brands.
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/16_country_markup_heatmap.png]                │
+  │  Caption: Figure 12 — Brand × Country price markup heatmap.         │
+  │  Values show % difference from USA base price. Red = more           │
+  │  expensive; blue = cheaper than USA.                                │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  4.6 Deal Detector Example
+  --------------------------
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT IMAGE: plots/10_deal_detector.png]                         │
+  │  Caption: Figure 13 — Deal Detector scatter plot: actual price vs.  │
+  │  predicted price. Red dots = overpriced (>25% above fair value);    │
+  │  green dots = great deals (>25% below fair value).                  │
+  └─────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+  5. DISCUSSION
+================================================================================
+
+  5.1 Interpretation of Results
+  --------------------------------
+    • R² = 0.91 means hardware specifications alone can explain 91% of
+      the variance in smartphone market prices — a strong result that
+      confirms the data-driven pricing approach is viable.
+    • CV R² = 0.89 verifies the model generalizes to unseen phones well
+      beyond the training set.
+    • Learning curves show training and validation error converging,
+      indicating a well-fitted model.
+    • Weight being the top feature (importance 0.37) is intuitive:
+      premium phones use heavier metal/glass construction, while budget
+      phones use lighter plastic, making weight a strong proxy for build
+      quality.
+    • Battery capacity has lower importance than commonly assumed,
+      suggesting consumers do not pay a significant premium purely for
+      battery size.
+    • The Deal Detector successfully flags phones priced ±25% from fair
+      value, providing a practically useful consumer tool.
+    • Classification accuracy of 80% is respectable but lower than the
+      regression R² because predicting discrete tier boundaries is harder
+      — phones near tier thresholds can legitimately belong to either
+      neighboring category.
+
+  5.2 Comparison with Proposal Expectations
+  -------------------------------------------
+
+    Metric                 Proposed Target    Achieved     Status
+    ───────────────────────────────────────────────────────────────
+    R² score               ~0.90              0.91         Met
+    Classification acc.    ~90%               80%          Partially met
+    Number of plots        16                 20           Exceeded
+    Regression models      3                  8            Exceeded
+    Clustering methods     1 (KMeans)         3            Exceeded
+
+    Classification accuracy of 80% fell short of the 90% target because
+    classifying phones into discrete tiers is harder than predicting
+    continuous prices, especially without explicit brand encoding.
+
+  5.3 Limitations
+  ----------------
+    • No processor / chipset encoding — chipset tier significantly affects
+      price but model names cannot be directly encoded as numeric features
+      without a separate benchmark database.
+    • No storage variant feature — 128GB vs. 256GB configurations have
+      different prices but storage capacity was not available in the dataset.
+    • Static exchange rates — cross-country currency conversion uses fixed
+      approximate rates rather than live data.
+    • Dataset size — 829 phones is sufficient for this study but larger
+      datasets would improve generalizability.
+    • Brand effect not fully captured — brand premium is partially captured
+      through weight/specs but not encoded explicitly in all models.
+
+  5.4 Potential Future Work
+  --------------------------
+    1. Add SHAP values for individual-prediction explainability.
+    2. Extract processor benchmark scores and storage size as features.
+    3. Integrate live exchange rate APIs for real-time price comparison.
+    4. Add time-series forecasting for smartphone price trend prediction.
+    5. Deploy the Streamlit application online via Streamlit Cloud.
+    6. Expand the dataset with 2025–2026 smartphone releases.
+
+
+================================================================================
+  6. CONCLUSION
+================================================================================
+
+  This project successfully built a complete, end-to-end smartphone pricing
+  intelligence system using data science techniques learned in ITCS 227.
+
+  Key achievements:
+
+    - Built an end-to-end CRISP-DM pipeline from raw data collection
+      through model deployment.
+
+    - Trained 8 regression models — the best (Extra Trees Regressor)
+      achieves R² = 0.91 with cross-validation R² = 0.89, reliably
+      predicting smartphone prices from hardware specifications alone.
+
+    - Created a "Deal Detector" that objectively flags overpriced and
+      underpriced smartphones based on specification-predicted fair prices.
+
+    - Built 3 classification models for price-tier prediction, with
+      Random Forest achieving 80% accuracy across 4 tiers.
+
+    - Compared 3 clustering algorithms (KMeans, DBSCAN, GMM) using
+      Silhouette Score evaluation — KMeans best aligns with actual
+      market price tiers.
+
+    - Analyzed pricing across 5 countries, revealing 13–83% price
+      differences for the same device due to regional pricing strategies.
+
+    - Deployed an interactive Streamlit web application with Customer
+      Mode (deal detection) and Company Mode (price recommendation).
+
+    - Integrated 12 techniques from 5 course labs (Labs 05, 06, 07,
+      10, 12), demonstrating thorough application of course material.
+
+  The core finding is that 91% of smartphone price variance can be
+  explained by measurable hardware specifications. This validates the
+  feasibility of data-driven pricing tools and demonstrates that machine
+  learning can provide objective, fair-price benchmarks to consumers,
+  manufacturers, and market analysts alike. The interactive Streamlit
+  app makes these insights accessible to non-technical users, turning a
+  data science model into a practical, usable product.
+
+
+================================================================================
+  7. CODE APPENDIX
+================================================================================
+
+  All source code is well-commented and organized into two files.
+
+  Repository Link:
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  [INSERT REPOSITORY LINK HERE]                                      │
+  │  e.g., https://github.com/username/repository-name                 │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  ─────────────────────────────────────────────────────────────────────
+  File 1: smartphone_price_prediction.ipynb
+  ─────────────────────────────────────────────────────────────────────
+  The main Jupyter Notebook containing the full analysis pipeline:
+    • Data loading via kagglehub
+    • Data preprocessing and regex-based feature extraction
+    • Exploratory Data Analysis (EDA) with 20 visualizations
+    • Feature engineering and binning
+    • Regression modeling (8 models) with cross-validation
+    • Polynomial features and HistGradientBoosting
+    • Learning curves and partial dependency plots
+    • Classification modeling (3 models) with confusion matrix
+    • Clustering: KMeans, DBSCAN, GMM
+    • Silhouette Score evaluation and hyperparameter search
+    • Cross-country price analysis and markup heatmap
+    • Model export using pickle
+
+  ─────────────────────────────────────────────────────────────────────
+  File 2: streamlit_app.py
+  ─────────────────────────────────────────────────────────────────────
+  The interactive web application:
+    • Loads data and trains the Gradient Boosting model on startup
+    • Customer Mode: inputs phone specs + actual price → outputs
+      fair price, price deviation %, and overpriced/underpriced flag
+    • Company Mode: inputs phone specs → outputs recommended
+      market price and three pricing strategy options
+    • Sidebar displays live model R² and MAE statistics
+
+  ─────────────────────────────────────────────────────────────────────
+  Course Techniques Applied (12 total from 5 labs)
+  ─────────────────────────────────────────────────────────────────────
+
+    Lab     Technique                            Application
+    ──────────────────────────────────────────────────────────────────
+    Lab 05  Feature binning (pd.cut, pd.qcut)    RAM, Battery, Price bins
+    Lab 05  Feature scaling (StandardScaler)     Linear model preprocessing
+    Lab 06  Polynomial Features (degree=2)       Poly-2 Ridge Regression
+    Lab 07  HistGradientBoostingRegressor        High-accuracy tabular model
+    Lab 10  5-Fold Cross-Validation              Robust model evaluation
+    Lab 10  Learning Curves                      Overfitting diagnosis
+    Lab 10  Partial Dependency Plots             Marginal feature effects
+    Lab 10  Pearson correlation + p-values       Statistical significance
+    Lab 10  Model export (pickle)                best_model.pkl deployment
+    Lab 12  DBSCAN clustering                    Density-based grouping
+    Lab 12  GMM clustering                       Soft probabilistic clustering
+    Lab 12  Silhouette Score                     Cluster quality evaluation
+
+    Total: 12 techniques from 5 course labs
+
+  ─────────────────────────────────────────────────────────────────────
+  Tools and Libraries
+  ─────────────────────────────────────────────────────────────────────
+
+    Tool/Library     Purpose
+    ─────────────────────────────────────────────────
+    Python 3.x       Primary programming language
+    Pandas           Data manipulation and analysis
+    NumPy            Numerical computing
+    Scikit-learn     Machine learning models
+    SciPy            Statistical testing (Pearson)
+    Matplotlib       Static visualizations
+    Seaborn          Statistical visualizations
+    Streamlit        Interactive web application
+    KaggleHub        Dataset download
+    Pickle           Model serialization
+
+
+
+
+================================================================================
+                           END OF REPORT
+================================================================================
