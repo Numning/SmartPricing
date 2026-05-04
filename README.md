@@ -1,6 +1,6 @@
 # 📱 Smart Pricing — Predicting Smartphone Prices from Specifications
 
-> **ITCS 227 — Introduction to Data Science | Capstone Project | Semester 2/2025**
+> **ITCS 227 — Introduction to Data Science | Semester 2/2025**
 
 An end-to-end machine learning pipeline that predicts smartphone prices from hardware specifications, detects overpriced/underpriced phones, and deploys an interactive web application for consumers and manufacturers.
 
@@ -146,14 +146,14 @@ Enter a phone's **specifications only** (no brand bias). The app will:
 |-------------------------|-------|-------|------|-------|
 | Linear Regression        | $116  | $173  | 0.68 | 0.68  |
 | Ridge Regression         | $116  | $173  | 0.68 | 0.68  |
-| Poly-2 Ridge ★           | $85   | $127  | 0.83 | 0.80  |
+| Poly-2 Ridge             | $85   | $127  | 0.83 | 0.80  |
 | Random Forest            | $78   | $118  | 0.85 | 0.85  |
 | Gradient Boosting        | $69   | $106  | 0.88 | 0.87  |
-| HistGradientBoosting ★   | $68   | $106  | 0.88 | 0.87  |
+| HistGradientBoosting     | $68   | $106  | 0.88 | 0.87  |
 | **Extra Trees ⭐ (Best)**| $74   | $113  | **0.91** | **0.89** |
 | Tuned Random Forest      | $75   | $116  | 0.86 | 0.85  |
 
-★ = Course technique | ⭐ = Best model
+⭐ = Best model
 
 ### Classification (Price Tier)
 
@@ -170,25 +170,6 @@ Enter a phone's **specifications only** (no brand bias). The app will:
 | **KMeans**   | **0.2830**      | 4        |
 | DBSCAN       | 0.1512          | 5        |
 | GMM          | 0.2397          | 2        |
-
----
-
-## 📚 Course Techniques Applied (12 from 5 Labs)
-
-| Lab    | Technique                          |
-|--------|------------------------------------|
-| Lab 05 | Feature binning (pd.cut, pd.qcut)  |
-| Lab 05 | Feature scaling (StandardScaler)   |
-| Lab 06 | Polynomial Features (degree=2)     |
-| Lab 07 | HistGradientBoostingRegressor      |
-| Lab 10 | 5-Fold Cross-Validation            |
-| Lab 10 | Learning Curves                    |
-| Lab 10 | Partial Dependency Plots           |
-| Lab 10 | Pearson correlation + p-values     |
-| Lab 10 | Model export (pickle)              |
-| Lab 12 | DBSCAN clustering                  |
-| Lab 12 | GMM clustering                     |
-| Lab 12 | Silhouette Score                   |
 
 ---
 
